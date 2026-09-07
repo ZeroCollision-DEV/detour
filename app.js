@@ -1,9 +1,9 @@
 'use strict';
 
 const PROXIES = [
-  { name: 'corsproxy.io', build: (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
   { name: 'allorigins', build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
   { name: 'codetabs', build: (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u) },
+  { name: 'corsproxy.io', build: (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
 ];
 
 const SHORTENER_HOSTS = [
@@ -111,9 +111,10 @@ function extractUrls(text, baseRaw) {
 async function fetchText(raw, onStep) {
   let lastErr = new Error('no proxy available');
   for (const p of PROXIES) {
+    if (onStep) onStep('trying ' + p.name);
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 15000);
+      const t = setTimeout(() => ctrl.abort(), 8000);
       const res = await fetch(p.build(raw), { signal: ctrl.signal, redirect: 'follow' });
       clearTimeout(t);
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -205,7 +206,7 @@ function normalize(input) {
 
 async function detour(rawInput) {
   const steps = [];
-  const step = (s) => steps.push(s);
+  const step = (s) => { steps.push(s); stepLive(s); };
   const raw = normalize(rawInput);
   const ctx = { fetchText: (u) => fetchText(u, step) };
 
@@ -247,6 +248,9 @@ const goBtn = document.getElementById('go');
 const goLabel = document.getElementById('goLabel');
 const statusEl = document.getElementById('status');
 const statusText = document.getElementById('statusText');
+const timerEl = document.getElementById('timer');
+const progressWrap = document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
 const resultEl = document.getElementById('result');
 const resultUrl = document.getElementById('resultUrl');
 const copyBtn = document.getElementById('copy');
@@ -254,6 +258,49 @@ const openA = document.getElementById('open');
 const altsEl = document.getElementById('alts');
 const logWrap = document.getElementById('logWrap');
 const logEl = document.getElementById('log');
+
+const BASELINE = {
+  'Linkvertise': 15,
+  'Rekonise': 12,
+  'Work.ink': 8,
+  'LootLabs': 8,
+  'Sub2Unlock': 8,
+  'generic': 8,
+};
+
+let timerHandle = null;
+let elapsed = 0;
+let totalEstimate = 8;
+
+function startTimer(provider) {
+  stopTimer();
+  elapsed = 0;
+  totalEstimate = BASELINE[provider] || 8;
+  timerEl.textContent = '~' + totalEstimate + 's';
+  progressBar.style.width = '0%';
+  timerHandle = setInterval(() => {
+    elapsed++;
+    const remaining = Math.max(0, totalEstimate - elapsed);
+    if (remaining > 0) {
+      timerEl.textContent = '~' + remaining + 's';
+      progressBar.style.width = Math.min(96, (elapsed / totalEstimate) * 100) + '%';
+    } else {
+      timerEl.textContent = 'still working...';
+      progressWrap.classList.add('indeterminate');
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+  timerEl.textContent = '';
+  progressWrap.classList.remove('indeterminate');
+  progressBar.style.width = '0%';
+}
+
+function stepLive(text) {
+  statusText.textContent = text;
+}
 
 function setLoading(on) {
   goBtn.disabled = on;
@@ -263,7 +310,7 @@ function setLoading(on) {
     statusEl.hidden = false;
     statusEl.classList.remove('error');
     statusEl.classList.add('loading');
-    statusText.textContent = 'detouring';
+    statusText.textContent = 'detecting provider';
   }
 }
 
@@ -338,6 +385,8 @@ form.addEventListener('submit', async (e) => {
   }
   hideResult();
   setLoading(true);
+  const provider = detectProvider(normalize(raw));
+  startTimer(provider ? provider.name : 'generic');
   try {
     const r = await detour(raw);
     renderResult(r);
@@ -346,6 +395,7 @@ form.addEventListener('submit', async (e) => {
     hideResult();
   } finally {
     setLoading(false);
+    stopTimer();
   }
 });
 
@@ -363,10 +413,6 @@ copyBtn.addEventListener('click', async () => {
     ta.remove();
   }
   flashCopied();
-});
-
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { /* form submit handles it */ }
 });
 
 input.focus();

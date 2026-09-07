@@ -65,8 +65,12 @@
       </form>
 
       <div class="status" id="status" hidden>
-        <span class="status-text" id="statusText">detouring</span>
-        <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+        <div class="status-row">
+          <span class="status-text" id="statusText">detouring</span>
+          <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="timer" id="timer"></span>
+        </div>
+        <div class="progress" id="progressWrap"><span class="progress-bar" id="progressBar"></span></div>
       </div>
 
       <div class="result" id="result" hidden>
