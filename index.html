@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Detour — paste a locked link, get the real destination. Runs entirely in your browser." />
+  <title>Detour — the short way around</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 7h7a3 3 0 0 1 3 3v2a3 3 0 0 0 3 3h5" />
+        <path d="M18 12l3 3-3 3" />
+        <circle cx="9" cy="12" r="1.3" />
+      </svg>
+      <span class="word">detour</span>
+    </div>
+    <span class="badge">runs locally</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>The short way around.</h1>
+      <p class="sub">Paste a locked link. Get the destination — no surveys, no countdown, no ads.</p>
+    </section>
+
+    <section class="tool">
+      <form id="form" autocomplete="off">
+        <div class="field">
+          <svg class="link-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          <input id="url" type="text" inputmode="url" placeholder="https://linkvertise.com/..." spellcheck="false" autocapitalize="off" autocorrect="off" />
+          <button type="submit" id="go">Detour</button>
+        </div>
+      </form>
+
+      <div class="status" id="status" hidden></div>
+
+      <div class="result" id="result" hidden>
+        <div class="result-label">destination</div>
+        <div class="result-url" id="resultUrl"></div>
+        <div class="result-actions">
+          <button id="copy" class="ghost">Copy</button>
+          <a id="open" class="primary" target="_blank" rel="noopener noreferrer">Open</a>
+        </div>
+        <div class="alts" id="alts" hidden>
+          <div class="alts-label">also found</div>
+        </div>
+      </div>
+
+      <details class="log" id="logWrap" hidden>
+        <summary>what it did</summary>
+        <ol id="log"></ol>
+      </details>
+    </section>
+
+    <section class="providers">
+      <h2>handles</h2>
+      <div class="chips">
+        <span>Linkvertise</span>
+        <span>Work.ink</span>
+        <span>LootLabs</span>
+        <span>Rekonise</span>
+        <span>Sub2Unlock</span>
+        <span>+ generic page-source scan</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Detour runs entirely in your browser. Nothing is stored, sent, or logged — it just asks the page nicely.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
