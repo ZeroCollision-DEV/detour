@@ -238,10 +238,15 @@ async function detour(rawInput) {
   return { candidates, steps, provider: provider ? provider.name : 'generic' };
 }
 
+/* ---------------- UI ---------------- */
+
 const form = document.getElementById('form');
+const field = document.getElementById('field');
 const input = document.getElementById('url');
 const goBtn = document.getElementById('go');
+const goLabel = document.getElementById('goLabel');
 const statusEl = document.getElementById('status');
+const statusText = document.getElementById('statusText');
 const resultEl = document.getElementById('result');
 const resultUrl = document.getElementById('resultUrl');
 const copyBtn = document.getElementById('copy');
@@ -252,11 +257,13 @@ const logEl = document.getElementById('log');
 
 function setLoading(on) {
   goBtn.disabled = on;
-  goBtn.textContent = on ? 'Detouring...' : 'Detour';
+  goBtn.classList.toggle('loading', on);
+  goLabel.textContent = on ? 'Detouring...' : 'Detour';
   if (on) {
     statusEl.hidden = false;
     statusEl.classList.remove('error');
-    statusEl.textContent = 'detouring...';
+    statusEl.classList.add('loading');
+    statusText.textContent = 'detouring';
   }
 }
 
@@ -265,7 +272,8 @@ function hideResult() { resultEl.hidden = true; }
 function showStatus(msg, isError) {
   statusEl.hidden = false;
   statusEl.classList.toggle('error', !!isError);
-  statusEl.textContent = msg;
+  statusEl.classList.remove('loading');
+  statusText.textContent = msg;
 }
 
 function renderResult(r) {
@@ -308,16 +316,26 @@ function renderResult(r) {
   }
 }
 
-function flash(el, msg) {
-  const o = el.textContent;
-  el.textContent = msg;
-  setTimeout(() => { el.textContent = o; }, 1200);
+function flashCopied() {
+  copyBtn.classList.add('copied');
+  const o = copyBtn.textContent;
+  copyBtn.textContent = 'Copied';
+  setTimeout(() => {
+    copyBtn.textContent = o;
+    copyBtn.classList.remove('copied');
+  }, 1200);
 }
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const raw = input.value.trim();
-  if (!raw) return;
+  if (!raw) {
+    field.classList.remove('shake');
+    void field.offsetWidth;
+    field.classList.add('shake');
+    input.focus();
+    return;
+  }
   hideResult();
   setLoading(true);
   try {
@@ -344,7 +362,11 @@ copyBtn.addEventListener('click', async () => {
     document.execCommand('copy');
     ta.remove();
   }
-  flash(copyBtn, 'Copied');
+  flashCopied();
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { /* form submit handles it */ }
 });
 
 input.focus();
