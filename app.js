@@ -46,8 +46,8 @@ const PROVIDERS = [
   {
     name: 'LootLabs',
     hosts: ['lootlabs.gg', 'loot-link.com', 'lootdest.org', 'lootdest.com', 'loot-labs.com',
-      'lootlabs.com', 'lootdest.info'],
-    resolve: scanResolve,
+      'lootlabs.com', 'lootdest.info', 'links.lootlabs.gg'],
+    resolve: lootlabsResolve,
   },
   { name: 'Work.ink', hosts: ['work.ink', 'workink.me', 'wev.ru', 'workin.click'], resolve: scanResolve },
 ];
@@ -61,6 +61,7 @@ const BLOCK_HOSTS = new Set([
   'googletagmanager.com', 'googlesyndication.com', 'doubleclick.net', 'facebook.net', 'facebook.com',
   'jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'cloudflare.com', 'bootstrapcdn.com',
   'jquery.com', 'cloudfront.net', 'akamaihd.net', 'taboola.com', 'api.taboola.com', 'cdn.taboola.com',
+  'hotjar.com', 'hotjar.io', 'cloudflareinsights.com',
 ]);
 
 function isBlocked(u) {
@@ -286,6 +287,37 @@ async function rekoniseResolve(raw, ctx) {
   return extractUrls(text, raw);
 }
 
+// LootLabs encrypts the destination in PUBLISHER_LINK: base64 -> first 5
+// chars are the XOR key -> XOR the remaining bytes.
+function lootDecrypt(b64) {
+  try {
+    const dec = atob(b64);
+    const key = dec.slice(0, 5);
+    let out = '';
+    for (let i = 5; i < dec.length; i++) {
+      out += String.fromCharCode(dec.charCodeAt(i) ^ key.charCodeAt((i - 5) % 5));
+    }
+    return out;
+  } catch { return null; }
+}
+
+async function lootlabsResolve(raw, ctx) {
+  const { text } = await ctx.fetchText(raw);
+  const m = text.match(/PUBLISHER_LINK[^=]*=\s*['"]([A-Za-z0-9+/=]{8,})['"]/);
+  if (m) {
+    const dec = lootDecrypt(m[1]);
+    if (dec) {
+      ctx.step('decrypted publisher link');
+      if (/^https?:\/\//i.test(dec) && !isBlocked(dec)) return [dec];
+      if (/^https?:\/\//i.test(dec) && isBlocked(dec)) {
+        ctx.step('bot-protected smartlink — destination is resolved server-side');
+        return [];
+      }
+    }
+  }
+  return extractUrls(text, raw);
+}
+
 /* -------- detection + core -------- */
 
 function detectProvider(raw) {
@@ -312,12 +344,9 @@ async function detour(rawInput) {
     step('detected ' + provider.name);
     try { candidates = await provider.resolve(raw, ctx); }
     catch (e) { step('provider error: ' + e.message); }
+    if (!candidates.length) step('nothing recoverable');
   } else {
-    step('no known provider');
-  }
-
-  if (!candidates.length) {
-    step('falling back to generic page scan');
+    step('no known provider — using generic page scan');
     try {
       const { text } = await ctx.fetchText(raw);
       candidates = extractUrls(text, raw);
