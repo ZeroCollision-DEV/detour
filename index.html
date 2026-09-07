@@ -28,12 +28,23 @@
       </svg>
       <span class="word">detour</span>
     </div>
-    <a class="gh-link" href="https://github.com/ZeroCollision-DEV/detour" target="_blank" rel="noopener noreferrer">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-        <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.05 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.92-2.34 4.78-4.57 5.04.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/>
-      </svg>
-      <span>view on github</span>
-    </a>
+    <div class="topbar-actions">
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      </button>
+      <a class="gh-link" href="https://github.com/ZeroCollision-DEV/detour" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49 0-.24-.01-.88-.01-1.72-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.05 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.92-2.34 4.78-4.57 5.04.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z"/>
+        </svg>
+        <span>view on github</span>
+      </a>
+    </div>
   </header>
 
   <main>
@@ -45,7 +56,7 @@
           <circle cx="9" cy="12" r="1.3" />
         </svg>
       </div>
-      <h1>The short way around.</h1>
+      <h1>The <span class="grad">short way</span> around.</h1>
       <p class="sub">Paste a locked link. Get the destination — no surveys, no countdown, no ads.</p>
     </section>
 
@@ -57,12 +68,23 @@
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
           </svg>
           <input id="url" type="text" inputmode="url" placeholder="https://linkvertise.com/..." spellcheck="false" autocapitalize="off" autocorrect="off" />
+          <button type="button" class="paste-btn" id="pasteBtn" title="Paste from clipboard" aria-label="Paste from clipboard">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
           <button type="submit" id="go">
             <span class="spinner" aria-hidden="true"></span>
             <span class="label" id="goLabel">Detour</span>
           </button>
         </div>
       </form>
+
+      <div class="example">
+        <span class="example-text">We can bypass links most other bypassers can't.</span>
+        <button type="button" class="example-link" id="exampleBtn">Try the Example!</button>
+      </div>
 
       <div class="status" id="status" hidden>
         <div class="status-row">
@@ -89,17 +111,34 @@
         <summary>what it did</summary>
         <ol id="log"></ol>
       </details>
+
+      <details class="settings">
+        <summary>settings</summary>
+        <div class="settings-body">
+          <label class="settings-label" for="proxyInput">custom proxy (optional) — <code>{url}</code> is replaced with the target</label>
+          <div class="settings-row">
+            <input id="proxyInput" type="text" placeholder="https://my-worker.workers.dev/?url={url}" spellcheck="false" autocapitalize="off" autocorrect="off" />
+            <button type="button" id="proxySave" class="ghost">Save</button>
+          </div>
+          <p class="settings-hint">free public proxies are flaky. point this at your own worker for a dependable detour.</p>
+        </div>
+      </details>
     </section>
 
     <section class="providers">
       <h2>handles</h2>
       <div class="chips">
         <span>Linkvertise</span>
-        <span>Work.ink</span>
-        <span>LootLabs</span>
-        <span>Rekonise</span>
+        <span>AdFly</span>
+        <span>AdFoc.us</span>
+        <span>AdShrink</span>
+        <span>shorte.st</span>
         <span>Sub2Unlock</span>
-        <span>+ generic page-source scan</span>
+        <span>Rekonise</span>
+        <span>LootLabs</span>
+        <span>Work.ink</span>
+        <span>AdMaven</span>
+        <span>+ anything in the source</span>
       </div>
     </section>
   </main>

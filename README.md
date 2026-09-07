@@ -4,32 +4,42 @@ The short way around. Paste a locked link, get the real destination — no surve
 
 ## What it handles
 
-- Linkvertise (via the publisher API, then page scan)
-- Work.ink
-- LootLabs (`lootlabs.gg` / `loot-link.com` / `lootdest.*`)
-- Rekonise
-- Sub2Unlock
+- Linkvertise (new `/access/` + `/{id}` formats, resolved via its GraphQL API)
+- AdFly, AdFoc.us, AdShrink, shorte.st, Sub2Unlock, Sub2Get, SocialUnlock, AdMaven, Rekonise, LootLabs, Work.ink
 - Anything else that hides a link in page source (generic base64 + JSON scan)
 
 ## How it works
 
-Detour runs entirely in your browser. It fetches the locked page through a public CORS proxy, then scans the response for the real destination using a few strategies: direct URLs, `atob(...)` blobs, raw base64 string literals, LZString-compressed payloads, and common JSON keys (`target`, `url`, `destination`, ...). Known providers get a dedicated resolver (Linkvertise's publisher API leaks the target; Rekonise's unlock API too) with the generic scan as fallback.
+Runs entirely in the browser. Known providers get a dedicated resolver; everything else falls back to a source scan (direct URLs, `atob(...)`, base64 literals, LZString, `ysmm`, common JSON keys).
+
+## The proxy problem
+
+Browsers can't fetch other domains without CORS, and these sites don't send it — so Detour routes through a CORS proxy. Free public proxies are flaky and keep dying. For dependable results, deploy the included worker and point Detour at it (Settings -> custom proxy).
+
+### Deploy the worker (free, Cloudflare Workers)
+
+```
+npm i -g wrangler
+wrangler login
+wrangler deploy worker.js
+```
+
+Then in Detour -> Settings, set custom proxy to:
+
+```
+https://<your-worker>.workers.dev/?url={url}
+```
 
 ## Run locally
 
-No build step. Serve the folder and open it:
+No build step:
 
 ```
 python -m http.server 8080
 ```
 
-Then go to `http://localhost:8080`. Or just open `index.html` directly.
+Then open `http://localhost:8080`.
 
 ## Deploy
 
-Any static host works — GitHub Pages, Cloudflare Pages, Netlify, Vercel. For GitHub Pages, push the `main` branch and enable Pages (source: branch, `/` root).
-
-## Notes
-
-- These services change their formats and endpoints regularly. Every extractor is isolated in `app.js` under `PROVIDERS` so it's a one-spot fix when one breaks.
-- Public CORS proxies are the weak link — they're free, so they can be slow or rate-limited. For something reliable, point a Cloudflare Worker at the same logic and add it to `PROXIES` in `app.js`.
+Any static host — GitHub Pages, Cloudflare Pages, Netlify, Vercel. For GitHub Pages, push `main` and enable Pages (source: branch, `/` root).

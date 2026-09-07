@@ -1,27 +1,66 @@
 'use strict';
 
-const PROXIES = [
+const DEFAULT_PROXIES = [
+  { name: 'cors.eu.org', build: (u) => 'https://cors.eu.org/' + u },
   { name: 'allorigins', build: (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
   { name: 'codetabs', build: (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u) },
-  { name: 'corsproxy.io', build: (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
 ];
 
-const SHORTENER_HOSTS = [
-  'linkvertise.com', 'link-to.net', 'linkvertise.download', 'link-hub.net', 'link-center.net',
-  'linkvertise.io', 'linktarget.net', 'link-protector.com', 'up-to-down.net',
-  'work.ink', 'workink.me', 'wev.ru', 'workin.click',
-  'lootlabs.gg', 'loot-link.com', 'lootdest.org', 'lootdest.com', 'loot-labs.com',
-  'lootlabs.com', 'lootdest.info',
-  'rekonise.com', 'rekonise.io',
-  'sub2unlock.net', 'sub2unlock.com',
+let PROXIES = [...DEFAULT_PROXIES];
+
+const LV_GRAPHQL = 'https://publisher.linkvertise.com/graphql';
+
+const LV_CONTENT_QUERY = 'query getContent($identifier: PublicLinkIdentificationInput!, $task_args: TaskArgument) { getContent(input: $identifier, task_args: $task_args) { __typename ... on DetailPageTargetData { type url paste } ... on ContentAccessTaskSet { __typename tasks { __typename id } } } }';
+
+const LV_LINK_QUERY = 'query getLinkByIdentifier($identifier: PublicLinkIdentificationInput!) { linkByIdentifier(linkIdentificationInput: $identifier) { url target_type target_host title } }';
+
+const EXAMPLE_URL = 'https://linkvertise.com/329510/test-it-out/1';
+
+const PROVIDERS = [
+  {
+    name: 'Linkvertise',
+    hosts: ['linkvertise.com', 'link-to.net', 'linkvertise.download', 'link-hub.net',
+      'link-center.net', 'linkvertise.io', 'linktarget.net', 'link-protector.com',
+      'up-to-down.net', 'linkvertise.net', 'linkvertise.biz', 'linkvertise.gg'],
+    resolve: linkvertiseResolve,
+  },
+  {
+    name: 'AdFly',
+    hosts: ['adf.ly', 'j.gs', 'q.gs', 'u.bb', 'qr.net', 'ay.gy', 'atominik.com',
+      'shrink-service.it', 'microify.com', 'boost.ink'],
+    resolve: adflyResolve,
+  },
+  { name: 'AdFoc.us', hosts: ['adfoc.us', 'adfocus.io'], resolve: scanResolve },
+  { name: 'AdShrink', hosts: ['adshrink.it', 'adshort.co', 'adshrink.org'], resolve: scanResolve },
+  {
+    name: 'shorte.st',
+    hosts: ['shorte.st', 'sh.st', 'linkshrink.net', 'shink.me', 'ceesty.com', 'clk.sh',
+      'corneey.com', 'destyy.com', 'festyy.com', 'gestyy.com'],
+    resolve: scanResolve,
+  },
+  { name: 'Sub2Unlock', hosts: ['sub2unlock.net', 'sub2unlock.com', 'sub2unlock.live', 'sub2unlock.xyz'], resolve: scanResolve },
+  { name: 'Sub2Get', hosts: ['sub2get.com', 'sub2get.net'], resolve: scanResolve },
+  { name: 'SocialUnlock', hosts: ['socialunlock.com', 'social-unlock.com', 'socialunlocks.com'], resolve: scanResolve },
+  { name: 'AdMaven', hosts: ['admaven.com', 'ad-maven.com'], resolve: scanResolve },
+  { name: 'Rekonise', hosts: ['rekonise.com', 'rekonise.io'], resolve: rekoniseResolve },
+  {
+    name: 'LootLabs',
+    hosts: ['lootlabs.gg', 'loot-link.com', 'lootdest.org', 'lootdest.com', 'loot-labs.com',
+      'lootlabs.com', 'lootdest.info'],
+    resolve: scanResolve,
+  },
+  { name: 'Work.ink', hosts: ['work.ink', 'workink.me', 'wev.ru', 'workin.click'], resolve: scanResolve },
 ];
+
+const SHORTENER_HOSTS = [];
+for (const p of PROVIDERS) for (const h of p.hosts) SHORTENER_HOSTS.push(h);
 
 const BLOCK_HOSTS = new Set([
   ...SHORTENER_HOSTS,
   'w3.org', 'schema.org', 'googleapis.com', 'gstatic.com', 'google.com', 'google-analytics.com',
   'googletagmanager.com', 'googlesyndication.com', 'doubleclick.net', 'facebook.net', 'facebook.com',
   'jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'cloudflare.com', 'bootstrapcdn.com',
-  'jquery.com', 'cloudfront.net', 'akamaihd.net',
+  'jquery.com', 'cloudfront.net', 'akamaihd.net', 'taboola.com', 'api.taboola.com', 'cdn.taboola.com',
 ]);
 
 function isBlocked(u) {
@@ -86,10 +125,24 @@ function extractUrls(text, baseRaw) {
   }
 
   for (const m of text.matchAll(/["'`]([A-Za-z0-9+/]{24,}={0,2})["'`]/g)) {
-    const d = b64d(m[1]);
+    let d = b64d(m[1]);
     if (!d) continue;
     collect([d], out);
     walkJson(d, out);
+    if (/^[A-Za-z0-9+/]{16,}={0,2}$/.test(d)) {
+      const d2 = b64d(d);
+      if (d2) { collect([d2], out); walkJson(d2, out); }
+    }
+  }
+
+  for (const m of text.matchAll(/ysmm\s*=\s*["'`]([^"'`]+)["'`]/gi)) {
+    let d = b64d(m[1]);
+    if (d && !/^https?:\/\//i.test(d)) d = b64d(d);
+    if (d) { collect([d], out); walkJson(d, out); }
+  }
+
+  for (const m of text.matchAll(/(?:data-url|data-href|data-link)\s*=\s*["']([^"']+)["']/gi)) {
+    collect([m[1]], out);
   }
 
   if (window.LZString && /LZString|compressTo/i.test(text)) {
@@ -126,72 +179,114 @@ async function fetchText(raw, onStep) {
   throw lastErr;
 }
 
-function linkvertiseId(raw) {
-  const segs = new URL(raw).pathname.split('/').filter(Boolean);
-  const sub = new Set(['dynamic', 'static', 'download']);
-  const num = segs.find((s) => /^\d+$/.test(s));
-  if (num) return num;
-  return segs.find((s) => !sub.has(s)) || '';
+/* -------- Linkvertise (GraphQL) -------- */
+
+function lvGet(op, query, variables) {
+  const p = new URLSearchParams();
+  p.set('query', query);
+  p.set('variables', JSON.stringify(variables));
+  p.set('operationName', op);
+  return LV_GRAPHQL + '?' + p.toString();
 }
 
-const PROVIDERS = [
-  {
-    name: 'Linkvertise',
-    hosts: ['linkvertise.com', 'link-to.net', 'linkvertise.download', 'link-hub.net',
-      'link-center.net', 'linkvertise.io', 'linktarget.net', 'link-protector.com'],
-    async resolve(raw, ctx) {
-      const id = linkvertiseId(raw);
-      if (id) {
-        for (const ep of [
-          'https://publisher.linkvertise.com/api/v1/redirect/link/' + id,
-          'https://publisher.linkvertise.com/api/v1/redirect/link/' + id + '?json=true',
-        ]) {
-          try {
-            const { text } = await ctx.fetchText(ep);
-            const out = new Set();
-            try { findUrlsIn(JSON.parse(text), out); }
-            catch { extractUrls(text, raw).forEach((u) => out.add(u)); }
-            if (out.size) return [...out];
-          } catch {}
-        }
-      }
-      const { text } = await ctx.fetchText(raw);
-      return extractUrls(text, raw);
-    },
-  },
-  {
-    name: 'Rekonise',
-    hosts: ['rekonise.com', 'rekonise.io'],
-    async resolve(raw, ctx) {
-      const id = new URL(raw).pathname.split('/').filter(Boolean)[0];
-      if (id) {
-        try {
-          const { text } = await ctx.fetchText('https://api.rekonise.com/unlocks/' + id);
-          const out = new Set();
-          findUrlsIn(JSON.parse(text), out);
-          if (out.size) return [...out];
-        } catch {}
-      }
-      const { text } = await ctx.fetchText(raw);
-      return extractUrls(text, raw);
-    },
-  },
-  {
-    name: 'Work.ink',
-    hosts: ['work.ink', 'workink.me', 'wev.ru', 'workin.click'],
-    async resolve(raw, ctx) { const { text } = await ctx.fetchText(raw); return extractUrls(text, raw); },
-  },
-  {
-    name: 'LootLabs',
-    hosts: ['lootlabs.gg', 'loot-link.com', 'lootdest.org', 'lootdest.com', 'loot-labs.com', 'lootlabs.com', 'lootdest.info'],
-    async resolve(raw, ctx) { const { text } = await ctx.fetchText(raw); return extractUrls(text, raw); },
-  },
-  {
-    name: 'Sub2Unlock',
-    hosts: ['sub2unlock.net', 'sub2unlock.com'],
-    async resolve(raw, ctx) { const { text } = await ctx.fetchText(raw); return extractUrls(text, raw); },
-  },
-];
+async function lvContent(ctx, identifier) {
+  const { text } = await ctx.fetchText(lvGet('getContent', LV_CONTENT_QUERY, { identifier }));
+  const j = JSON.parse(text);
+  const node = j && j.data && j.data.getContent;
+  if (!node || node.__typename === 'ContentAccessTaskSet') return { urls: [], gated: node && node.__typename === 'ContentAccessTaskSet' };
+  const urls = [];
+  if (node.url) urls.push(node.url);
+  if (node.paste) urls.push(node.paste);
+  return { urls, gated: false };
+}
+
+async function lvHost(ctx, identifier) {
+  const { text } = await ctx.fetchText(lvGet('getLinkByIdentifier', LV_LINK_QUERY, { identifier }));
+  const j = JSON.parse(text);
+  return (j && j.data && j.data.linkByIdentifier && j.data.linkByIdentifier.target_host) || '';
+}
+
+function linkvertiseIdentifiers(raw) {
+  const u = new URL(raw);
+  let path = u.pathname.replace(/^\/access(?=\/|$)/, '');
+  const segs = path.split('/').filter(Boolean);
+  const r = u.searchParams.get('r');
+  const v = u.searchParams.get('v');
+  const origin = u.searchParams.get('link_origin');
+  const ids = [];
+
+  if (r && segs.length) {
+    const h = { user_id: segs[0], hash: r, originates_from_adfly: origin === 'adfly' };
+    if (v) h.version = v;
+    ids.push({ userIdAndHash: h });
+  } else if (segs.length === 1) {
+    ids.push({ id: { id: segs[0] } });
+    ids.push({ userIdAndUrl: { url: segs[0], user_id: segs[0] } });
+  } else {
+    ids.push({ userIdAndUrl: { url: segs[1], user_id: segs[0] } });
+    const rest = segs.slice(1).join('/');
+    if (rest !== segs[1]) ids.push({ userIdAndUrl: { url: rest, user_id: segs[0] } });
+  }
+  return ids;
+}
+
+async function linkvertiseResolve(raw, ctx) {
+  const step = ctx.step;
+  const identifiers = linkvertiseIdentifiers(raw);
+  let gated = false;
+
+  for (const identifier of identifiers) {
+    try {
+      const { urls, gated: g } = await lvContent(ctx, identifier);
+      if (urls.length) return urls;
+      if (g) gated = true;
+    } catch {}
+  }
+
+  if (gated) step('link is task-gated (wait/ad/premium)');
+  for (const identifier of identifiers) {
+    try {
+      const host = await lvHost(ctx, identifier);
+      if (host) { step('recovered destination host: ' + host); return ['https://' + host]; }
+    } catch {}
+  }
+  return [];
+}
+
+/* -------- other resolvers -------- */
+
+async function scanResolve(raw, ctx) {
+  const { text } = await ctx.fetchText(raw);
+  return extractUrls(text, raw);
+}
+
+async function adflyResolve(raw, ctx) {
+  const { text } = await ctx.fetchText(raw);
+  const out = extractUrls(text, raw);
+  const m = text.match(/ysmm\s*=\s*["']([^"']+)["']/);
+  if (m) {
+    let d = b64d(m[1]);
+    if (d && !/^https?:\/\//i.test(d)) d = b64d(d);
+    if (d && /^https?:\/\//i.test(d) && !isBlocked(d)) out.unshift(cleanUrl(d));
+  }
+  return out;
+}
+
+async function rekoniseResolve(raw, ctx) {
+  const id = new URL(raw).pathname.split('/').filter(Boolean)[0];
+  if (id) {
+    try {
+      const { text } = await ctx.fetchText('https://api.rekonise.com/unlocks/' + id);
+      const out = new Set();
+      findUrlsIn(JSON.parse(text), out);
+      if (out.size) return [...out];
+    } catch {}
+  }
+  const { text } = await ctx.fetchText(raw);
+  return extractUrls(text, raw);
+}
+
+/* -------- detection + core -------- */
 
 function detectProvider(raw) {
   const host = new URL(raw).hostname.toLowerCase();
@@ -208,7 +303,7 @@ async function detour(rawInput) {
   const steps = [];
   const step = (s) => { steps.push(s); stepLive(s); };
   const raw = normalize(rawInput);
-  const ctx = { fetchText: (u) => fetchText(u, step) };
+  const ctx = { fetchText: (u) => fetchText(u, step), step };
 
   const provider = detectProvider(raw);
   let candidates = [];
@@ -244,8 +339,11 @@ async function detour(rawInput) {
 const form = document.getElementById('form');
 const field = document.getElementById('field');
 const input = document.getElementById('url');
+const pasteBtn = document.getElementById('pasteBtn');
 const goBtn = document.getElementById('go');
 const goLabel = document.getElementById('goLabel');
+const exampleBtn = document.getElementById('exampleBtn');
+const themeToggle = document.getElementById('themeToggle');
 const statusEl = document.getElementById('status');
 const statusText = document.getElementById('statusText');
 const timerEl = document.getElementById('timer');
@@ -258,13 +356,13 @@ const openA = document.getElementById('open');
 const altsEl = document.getElementById('alts');
 const logWrap = document.getElementById('logWrap');
 const logEl = document.getElementById('log');
+const proxyInput = document.getElementById('proxyInput');
+const proxySave = document.getElementById('proxySave');
 
 const BASELINE = {
   'Linkvertise': 15,
+  'AdFly': 8,
   'Rekonise': 12,
-  'Work.ink': 8,
-  'LootLabs': 8,
-  'Sub2Unlock': 8,
   'generic': 8,
 };
 
@@ -373,6 +471,11 @@ function flashCopied() {
   }, 1200);
 }
 
+function applyTheme(t) {
+  if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else document.documentElement.removeAttribute('data-theme');
+}
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const raw = input.value.trim();
@@ -413,6 +516,52 @@ copyBtn.addEventListener('click', async () => {
     ta.remove();
   }
   flashCopied();
+});
+
+pasteBtn.addEventListener('click', async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (t) { input.value = t.trim(); input.focus(); }
+    else { input.focus(); showStatus('clipboard is empty — press Ctrl+V instead', false); }
+  } catch {
+    input.focus();
+    showStatus('clipboard access blocked by the browser — press Ctrl+V instead', false);
+  }
+});
+
+exampleBtn.addEventListener('click', () => {
+  input.value = EXAMPLE_URL;
+  input.focus();
+});
+
+const savedTheme = localStorage.getItem('detour-theme');
+if (savedTheme) applyTheme(savedTheme);
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  localStorage.setItem('detour-theme', next);
+});
+
+function loadCustomProxy() {
+  const tpl = localStorage.getItem('detour-proxy');
+  if (tpl) {
+    proxyInput.value = tpl;
+    PROXIES = [{ name: 'custom', build: (u) => tpl.replace('{url}', encodeURIComponent(u)) }, ...DEFAULT_PROXIES];
+  }
+}
+loadCustomProxy();
+
+proxySave.addEventListener('click', () => {
+  const tpl = proxyInput.value.trim();
+  if (tpl) {
+    localStorage.setItem('detour-proxy', tpl);
+    PROXIES = [{ name: 'custom', build: (u) => tpl.replace('{url}', encodeURIComponent(u)) }, ...DEFAULT_PROXIES];
+    showStatus('custom proxy saved', false);
+  } else {
+    localStorage.removeItem('detour-proxy');
+    PROXIES = [...DEFAULT_PROXIES];
+    showStatus('custom proxy cleared', false);
+  }
 });
 
 input.focus();
